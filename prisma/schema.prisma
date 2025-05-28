@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  password  String
+  avatar    String?
+  role      Role      @default(USER)
+  phone     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  properties Property[]
+  bookings   Booking[]
+  reviews    Review[]
+}
+
+model Property {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  address     String
+  city        String
+  state       String
+  pincode     String
+  price       Float
+  deposit     Float
+  amenities   String[]
+  images      String[]
+  type        RoomType
+  capacity    Int
+  rating      Float     @default(0)
+  reviewCount Int       @default(0)
+  available   Boolean   @default(true)
+  featured    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  owner     User      @relation(fields: [ownerId], references: [id])
+  ownerId   String
+  bookings  Booking[]
+  reviews   Review[]
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  startDate     DateTime
+  endDate       DateTime
+  totalAmount   Float
+  status        BookingStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentMethod String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+}
+
+enum Role {
+  USER
+  OWNER
+  ADMIN
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+  TRIPLE
+  SHARED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
