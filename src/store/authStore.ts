@@ -5,101 +5,195 @@ interface AuthState {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  otpSent: boolean
+  otpPhone: string | null
+  sendLoginOtp: (phone: string) => Promise<void>
+  verifyLoginOtp: (phone: string, otp: string) => Promise<void>
+  sendSignupOtp: (phone: string) => Promise<void>
+  verifySignupOtp: (name: string, email: string, phone: string, otp: string, role?: string) => Promise<void>
+  resendOtp: (phone: string, type: 'LOGIN' | 'SIGNUP') => Promise<void>
   logout: () => void
+  clearOtpState: () => void
 }
 
-// Mock users data
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
-    role: 'user',
-    createdAt: new Date(),
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
-    role: 'owner',
-    createdAt: new Date(),
-  },
-  {
-    id: '3',
-    name: 'Admin User',
-    email: 'admin@example.com',
-    avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150',
-    role: 'admin',
-    createdAt: new Date(),
-  }
-]
+const API_BASE_URL = 'http://localhost:5000/api'
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
+  otpSent: false,
+  otpPhone: null,
   
-  login: async (email: string, password: string) => {
+  sendLoginOtp: async (phone: string) => {
     set({ isLoading: true })
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    const user = mockUsers.find(u => u.email === email)
-    
-    if (user) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone }),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send OTP')
+      }
+      
       set({ 
-        user, 
-        isAuthenticated: true, 
+        otpSent: true, 
+        otpPhone: phone, 
         isLoading: false 
       })
-      localStorage.setItem('user', JSON.stringify(user))
-    } else {
+    } catch (error: any) {
       set({ isLoading: false })
-      throw new Error('Invalid credentials')
+      throw error
     }
   },
   
-  register: async (name: string, email: string, password: string) => {
+  verifyLoginOtp: async (phone: string, otp: string) => {
     set({ isLoading: true })
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    const existingUser = mockUsers.find(u => u.email === email)
-    
-    if (existingUser) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone, otp }),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid OTP')
+      }
+      
+      set({ 
+        user: data.user, 
+        isAuthenticated: true, 
+        isLoading: false,
+        otpSent: false,
+        otpPhone: null
+      })
+      
+      localStorage.setItem('user', JSON.stringify(data.user))
+      localStorage.setItem('accessToken', data.accessToken)
+      localStorage.setItem('refreshToken', data.refreshToken)
+    } catch (error: any) {
       set({ isLoading: false })
-      throw new Error('Email already in use')
+      throw error
     }
+  },
+  
+  sendSignupOtp: async (phone: string) => {
+    set({ isLoading: true })
     
-    const newUser: User = {
-      id: String(mockUsers.length + 1),
-      name,
-      email,
-      role: 'user',
-      createdAt: new Date(),
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/signup/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone }),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send OTP')
+      }
+      
+      set({ 
+        otpSent: true, 
+        otpPhone: phone, 
+        isLoading: false 
+      })
+    } catch (error: any) {
+      set({ isLoading: false })
+      throw error
     }
+  },
+  
+  verifySignupOtp: async (name: string, email: string, phone: string, otp: string, role = 'USER') => {
+    set({ isLoading: true })
     
-    mockUsers.push(newUser)
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/signup/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, phone, otp, role }),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid OTP')
+      }
+      
+      set({ 
+        user: data.user, 
+        isAuthenticated: true, 
+        isLoading: false,
+        otpSent: false,
+        otpPhone: null
+      })
+      
+      localStorage.setItem('user', JSON.stringify(data.user))
+      localStorage.setItem('accessToken', data.accessToken)
+      localStorage.setItem('refreshToken', data.refreshToken)
+    } catch (error: any) {
+      set({ isLoading: false })
+      throw error
+    }
+  },
+  
+  resendOtp: async (phone: string, type: 'LOGIN' | 'SIGNUP') => {
+    set({ isLoading: true })
     
-    set({ 
-      user: newUser, 
-      isAuthenticated: true, 
-      isLoading: false 
-    })
-    localStorage.setItem('user', JSON.stringify(newUser))
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/resend-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone, type }),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to resend OTP')
+      }
+      
+      set({ isLoading: false })
+    } catch (error: any) {
+      set({ isLoading: false })
+      throw error
+    }
   },
   
   logout: () => {
     set({ 
       user: null, 
-      isAuthenticated: false 
+      isAuthenticated: false,
+      otpSent: false,
+      otpPhone: null
     })
     localStorage.removeItem('user')
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
   },
+  
+  clearOtpState: () => {
+    set({ 
+      otpSent: false, 
+      otpPhone: null 
+    })
+  }
 }))

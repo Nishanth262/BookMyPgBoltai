@@ -1,14 +1,15 @@
 export type User = {
   id: string
   name: string
-  email: string
+  email?: string
+  phone: string
   avatar?: string
-  role: 'user' | 'owner' | 'admin'
-  phone?: string
+  role: 'USER' | 'OWNER' | 'ADMIN'
+  isVerified: boolean
   createdAt: Date
 }
 
-export type PropertyType = 'single' | 'double' | 'triple' | 'shared'
+export type PropertyType = 'SINGLE' | 'DOUBLE' | 'TRIPLE' | 'SHARED'
 
 export type Property = {
   id: string
@@ -44,8 +45,8 @@ export type Booking = {
   startDate: Date
   endDate: Date
   totalAmount: number
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed'
-  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded'
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
+  paymentStatus: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED'
   paymentMethod?: string
   createdAt: Date
 }
@@ -65,4 +66,15 @@ export type Amenity = {
   id: string
   name: string
   icon: string
+}
+
+export type OtpCode = {
+  id: string
+  phone: string
+  code: string
+  type: 'LOGIN' | 'SIGNUP' | 'FORGOT_PASSWORD'
+  expiresAt: Date
+  isUsed: boolean
+  createdAt: Date
+  userId?: string
 }

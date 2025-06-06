@@ -6,17 +6,32 @@ import { Header } from '../components/layout/Header'
 import { Footer } from '../components/layout/Footer'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { HomeIcon, Phone, Shield, AlertCircle, ArrowLeft, RotateCcw } from 'lucide-react'
+import { 
+  HomeIcon, 
+  Phone, 
+  Shield, 
+  AlertCircle, 
+  ArrowLeft, 
+  RotateCcw, 
+  User, 
+  Mail,
+  UserCheck
+} from 'lucide-react'
 
-const LoginPage: React.FC = () => {
-  const [phone, setPhone] = useState('')
+const RegisterPage: React.FC = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'USER'
+  })
   const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
   const [countdown, setCountdown] = useState(0)
   
   const { 
-    sendLoginOtp, 
-    verifyLoginOtp, 
+    sendSignupOtp, 
+    verifySignupOtp, 
     resendOtp,
     isLoading, 
     isAuthenticated, 
@@ -28,7 +43,7 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    document.title = 'Login | BookMyPG'
+    document.title = 'Register | BookMyPG'
     
     if (isAuthenticated) {
       navigate('/')
@@ -57,19 +72,37 @@ const LoginPage: React.FC = () => {
     return digits
   }
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     
-    if (!phone) {
+    if (!formData.name.trim()) {
+      setError('Please enter your full name')
+      return
+    }
+    
+    if (!formData.phone) {
       setError('Please enter your phone number')
       return
     }
     
-    const formattedPhone = formatPhoneNumber(phone)
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Please enter a valid email address')
+      return
+    }
+    
+    const formattedPhone = formatPhoneNumber(formData.phone)
     
     try {
-      await sendLoginOtp(formattedPhone)
+      await sendSignupOtp(formattedPhone)
       setCountdown(60) // Start 60 second countdown
     } catch (error: any) {
       setError(error.message || 'Failed to send OTP')
@@ -91,7 +124,13 @@ const LoginPage: React.FC = () => {
     }
     
     try {
-      await verifyLoginOtp(otpPhone!, otp)
+      await verifySignupOtp(
+        formData.name.trim(),
+        formData.email.trim(),
+        otpPhone!,
+        otp,
+        formData.role
+      )
       navigate('/')
     } catch (error: any) {
       setError(error.message || 'Invalid OTP')
@@ -103,7 +142,7 @@ const LoginPage: React.FC = () => {
     
     setError('')
     try {
-      await resendOtp(otpPhone!, 'LOGIN')
+      await resendOtp(otpPhone!, 'SIGNUP')
       setCountdown(60)
     } catch (error: any) {
       setError(error.message || 'Failed to resend OTP')
@@ -135,12 +174,12 @@ const LoginPage: React.FC = () => {
                 </div>
               </div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {otpSent ? 'Verify OTP' : 'Welcome Back'}
+                {otpSent ? 'Verify OTP' : 'Create Account'}
               </h1>
               <p className="text-gray-600">
                 {otpSent 
                   ? `Enter the 6-digit code sent to ${otpPhone}`
-                  : 'Sign in to access your BookMyPG account'
+                  : 'Join BookMyPG to find your perfect accommodation'
                 }
               </p>
             </div>
@@ -156,8 +195,49 @@ const LoginPage: React.FC = () => {
               <form onSubmit={handleSendOtp}>
                 <div className="space-y-6">
                   <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Full Name *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <User className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <Input
+                        id="name"
+                        name="name"
+                        type="text"
+                        placeholder="Enter your full name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className="pl-10"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email Address (Optional)
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="Enter your email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number
+                      Phone Number *
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -165,17 +245,36 @@ const LoginPage: React.FC = () => {
                       </div>
                       <Input
                         id="phone"
+                        name="phone"
                         type="tel"
                         placeholder="Enter your phone number"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        value={formData.phone}
+                        onChange={handleInputChange}
                         className="pl-10"
                         required
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      We'll send you a verification code
-                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+                      Account Type
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <UserCheck className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <select
+                        id="role"
+                        name="role"
+                        value={formData.role}
+                        onChange={handleInputChange}
+                        className="input pl-10"
+                      >
+                        <option value="USER">Tenant (Looking for PG)</option>
+                        <option value="OWNER">Owner (List your PG)</option>
+                      </select>
+                    </div>
                   </div>
                   
                   <Button
@@ -236,10 +335,10 @@ const LoginPage: React.FC = () => {
                       {isLoading ? (
                         <div className="flex items-center justify-center">
                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                          Verifying...
+                          Creating...
                         </div>
                       ) : (
-                        'Verify & Login'
+                        'Create Account'
                       )}
                     </Button>
                   </div>
@@ -268,9 +367,9 @@ const LoginPage: React.FC = () => {
             
             <div className="mt-8 text-center">
               <p className="text-gray-600">
-                Don't have an account?{' '}
-                <Link to="/register" className="text-primary-600 hover:text-primary-500 font-medium">
-                  Sign up
+                Already have an account?{' '}
+                <Link to="/login" className="text-primary-600 hover:text-primary-500 font-medium">
+                  Sign in
                 </Link>
               </p>
             </div>
@@ -283,4 +382,4 @@ const LoginPage: React.FC = () => {
   )
 }
 
-export default LoginPage
+export default RegisterPage

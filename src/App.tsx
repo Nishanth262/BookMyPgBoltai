@@ -4,6 +4,7 @@ import { useAuthStore } from './store/authStore'
 import HomePage from './pages/HomePage'
 import PropertyDetailsPage from './pages/PropertyDetailsPage'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 
 // Auth guard component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -22,9 +23,23 @@ function App() {
   // Check for stored user on app load
   useEffect(() => {
     const storedUser = localStorage.getItem('user')
-    if (storedUser) {
-      // Here we would normally validate the user token
-      // but for this demo we'll just use the stored user
+    const storedToken = localStorage.getItem('accessToken')
+    
+    if (storedUser && storedToken) {
+      // In a real app, you would validate the token with the server
+      // For now, we'll just restore the user state
+      try {
+        const user = JSON.parse(storedUser)
+        useAuthStore.setState({ 
+          user, 
+          isAuthenticated: true 
+        })
+      } catch (error) {
+        // Clear invalid stored data
+        localStorage.removeItem('user')
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+      }
     }
   }, [])
   
@@ -35,9 +50,9 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/property/:id" element={<PropertyDetailsPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         
         {/* These routes would be implemented in a full app */}
-        <Route path="/register" element={<LoginPage />} />
         <Route path="/properties" element={<HomePage />} />
         <Route path="/about" element={<HomePage />} />
         <Route path="/contact" element={<HomePage />} />
