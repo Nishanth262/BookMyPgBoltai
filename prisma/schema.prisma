@@ -48,13 +48,32 @@ model Property {
   address     String
   city        String
   state       String
+  stateId     String    // Reference to state ID from locations data
+  district    String
+  districtId  String    // Reference to district ID from locations data
   pincode     String
-  price       Float
+  
+  // Room availability counts
+  singleRooms    Int @default(0)
+  doubleRooms    Int @default(0)
+  tripleRooms    Int @default(0)
+  quadRooms      Int @default(0)
+  
+  // Pricing for different room types
+  singlePrice    Float @default(0)
+  doublePrice    Float @default(0)
+  triplePrice    Float @default(0)
+  quadPrice      Float @default(0)
+  
   deposit     Float
   amenities   String[]
   images      String[]
-  type        RoomType
-  capacity    Int
+  
+  // Legacy fields for backward compatibility
+  type        RoomType @default(SINGLE)
+  capacity    Int      @default(1)
+  price       Float    @default(0)
+  
   rating      Float     @default(0)
   reviewCount Int       @default(0)
   available   Boolean   @default(true)
@@ -67,12 +86,16 @@ model Property {
   ownerId   String
   bookings  Booking[]
   reviews   Review[]
+  
+  @@index([stateId, districtId])
+  @@index([city, state])
 }
 
 model Booking {
   id            String        @id @default(cuid())
   startDate     DateTime
   endDate       DateTime
+  roomType      RoomType      // Which type of room was booked
   totalAmount   Float
   status        BookingStatus @default(PENDING)
   paymentStatus PaymentStatus @default(PENDING)
@@ -111,7 +134,7 @@ enum RoomType {
   SINGLE
   DOUBLE
   TRIPLE
-  SHARED
+  QUAD
 }
 
 enum BookingStatus {

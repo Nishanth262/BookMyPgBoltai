@@ -8,6 +8,8 @@ import { Header } from '../components/layout/Header'
 import { Footer } from '../components/layout/Footer'
 import { Button } from '../components/ui/button'
 import { formatPrice, formatDate, calculateDurationInDays } from '../lib/utils'
+import { PropertyType } from '../lib/types'
+import { getStateById, getDistrictById } from '../data/locations'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
 import { 
@@ -27,7 +29,8 @@ import {
   RotateCcw,
   Lock,
   Users,
-  AlertCircle
+  AlertCircle,
+  Home
 } from 'lucide-react'
 
 const PropertyDetailsPage: React.FC = () => {
@@ -39,6 +42,7 @@ const PropertyDetailsPage: React.FC = () => {
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [selectedRoomType, setSelectedRoomType] = useState<PropertyType | null>(null)
   const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [range, setRange] = useState<{from: Date | undefined, to: Date | undefined}>({from: undefined, to: undefined})
@@ -85,21 +89,39 @@ const PropertyDetailsPage: React.FC = () => {
     }
   }
 
-  const handleBookNow = () => {
+  const handleBookNow = (roomType: PropertyType) => {
     if (!isAuthenticated) {
       navigate('/login')
       return
     }
     
+    setSelectedRoomType(roomType)
     setShowBookingForm(true)
   }
 
   const handleConfirmBooking = async () => {
-    if (!property || !startDate || !endDate || !user) return
+    if (!property || !startDate || !endDate || !user || !selectedRoomType) return
     
     try {
       const totalDays = calculateDurationInDays(startDate, endDate)
-      const totalAmount = property.price * totalDays
+      let roomPrice = 0
+      
+      switch (selectedRoomType) {
+        case 'SINGLE':
+          roomPrice = property.singlePrice
+          break
+        case 'DOUBLE':
+          roomPrice = property.doublePrice
+          break
+        case 'TRIPLE':
+          roomPrice = property.triplePrice
+          break
+        case 'QUAD':
+          roomPrice = property.quadPrice
+          break
+      }
+      
+      const totalAmount = roomPrice * totalDays
       
       await createBooking({
         propertyId: property.id,
@@ -109,9 +131,10 @@ const PropertyDetailsPage: React.FC = () => {
         userName: user.name,
         startDate,
         endDate,
+        roomType: selectedRoomType,
         totalAmount,
-        status: 'confirmed',
-        paymentStatus: 'completed',
+        status: 'CONFIRMED',
+        paymentStatus: 'COMPLETED',
         paymentMethod: 'Credit Card'
       })
       
@@ -140,6 +163,21 @@ const PropertyDetailsPage: React.FC = () => {
     }
   }
 
+  const getRoomTypeLabel = (roomType: PropertyType) => {
+    switch (roomType) {
+      case 'SINGLE':
+        return 'Single Sharing'
+      case 'DOUBLE':
+        return '2 Sharing'
+      case 'TRIPLE':
+        return '3 Sharing'
+      case 'QUAD':
+        return '4 Sharing'
+      default:
+        return roomType
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -164,6 +202,44 @@ const PropertyDetailsPage: React.FC = () => {
       </div>
     )
   }
+
+  // Get available room types
+  const availableRooms = []
+  if (property.singleRooms > 0) {
+    availableRooms.push({
+      type: 'SINGLE' as PropertyType,
+      label: 'Single Sharing',
+      count: property.singleRooms,
+      price: property.singlePrice
+    })
+  }
+  if (property.doubleRooms > 0) {
+    availableRooms.push({
+      type: 'DOUBLE' as PropertyType,
+      label: '2 Sharing',
+      count: property.doubleRooms,
+      price: property.doublePrice
+    })
+  }
+  if (property.tripleRooms > 0) {
+    availableRooms.push({
+      type: 'TRIPLE' as PropertyType,
+      label: '3 Sharing',
+      count: property.tripleRooms,
+      price: property.triplePrice
+    })
+  }
+  if (property.quadRooms > 0) {
+    availableRooms.push({
+      type: 'QUAD' as PropertyType,
+      label: '4 Sharing',
+      count: property.quadRooms,
+      price: property.quadPrice
+    })
+  }
+
+  const state = getStateById(property.stateId)
+  const district = getDistrictById(property.districtId)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -204,7 +280,7 @@ const PropertyDetailsPage: React.FC = () => {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h1>
               <div className="flex items-center text-gray-600">
                 <MapPin className="h-4 w-4 mr-1" />
-                <span>{property.address}, {property.city}, {property.state}</span>
+                <span>{property.address}, {district?.name}, {state?.name}</span>
               </div>
             </div>
             <div className="flex items-center space-x-3 mt-4 md:mt-0">
@@ -299,10 +375,30 @@ const PropertyDetailsPage: React.FC = () => {
                 </div>
                 
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">Property Type</h3>
-                  <div className="flex items-center">
-                    <Users className="h-5 w-5 text-gray-700 mr-2" />
-                    <span className="text-gray-700 capitalize">{property.type} Room (Capacity: {property.capacity})</span>
+                  <h3 className="text-lg font-semibold mb-4">Available Room Types</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {availableRooms.map((room) => (
+                      <div key={room.type} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center">
+                            <Users className="h-5 w-5 text-gray-700 mr-2" />
+                            <span className="font-semibold">{room.label}</span>
+                          </div>
+                          <span className="text-sm text-gray-500">{room.count} available</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xl font-bold text-primary-600">
+                            {formatPrice(room.price)}/month
+                          </span>
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleBookNow(room.type)}
+                          >
+                            Book Now
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
                 
@@ -357,109 +453,8 @@ const PropertyDetailsPage: React.FC = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Address</h3>
                   <p className="text-gray-700">
-                    {property.address}, {property.city}, {property.state} - {property.pincode}
+                    {property.address}, {district?.name}, {state?.name} - {property.pincode}
                   </p>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Reviews</h2>
-                
-                {/* Review Stats */}
-                <div className="flex items-center mb-6">
-                  <div className="bg-primary-100 rounded-lg p-4 text-center mr-6">
-                    <span className="block text-3xl font-bold text-primary-700">{property.rating}</span>
-                    <div className="flex justify-center mt-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star 
-                          key={i} 
-                          className={`h-4 w-4 ${
-                            i < Math.floor(property.rating) 
-                              ? 'text-accent-500 fill-current' 
-                              : 'text-gray-300'
-                          }`} 
-                        />
-                      ))}
-                    </div>
-                    <span className="text-sm text-gray-600 mt-1">
-                      {property.reviewCount} reviews
-                    </span>
-                  </div>
-                  
-                  <div>
-                    <p className="text-gray-700 mb-2">Excellent reviews for:</p>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                        Cleanliness
-                      </span>
-                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                        Location
-                      </span>
-                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                        Value for Money
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Sample Reviews */}
-                <div className="space-y-6">
-                  <div className="border-b border-gray-100 pb-6">
-                    <div className="flex items-center mb-3">
-                      <img 
-                        src="https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150" 
-                        alt="Reviewer" 
-                        className="w-10 h-10 rounded-full object-cover mr-3"
-                      />
-                      <div>
-                        <p className="font-semibold">Rahul Sharma</p>
-                        <div className="flex items-center">
-                          {[...Array(5)].map((_, i) => (
-                            <Star 
-                              key={i} 
-                              className="h-3 w-3 text-accent-500 fill-current" 
-                            />
-                          ))}
-                          <span className="text-xs text-gray-500 ml-2">1 month ago</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-gray-700">
-                      Great place to stay! The room was clean and comfortable. The amenities were exactly as described. 
-                      The location is perfect, close to restaurants and public transport.
-                    </p>
-                  </div>
-                  
-                  <div className="border-b border-gray-100 pb-6">
-                    <div className="flex items-center mb-3">
-                      <img 
-                        src="https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150" 
-                        alt="Reviewer" 
-                        className="w-10 h-10 rounded-full object-cover mr-3"
-                      />
-                      <div>
-                        <p className="font-semibold">Priya Patel</p>
-                        <div className="flex items-center">
-                          {[...Array(4)].map((_, i) => (
-                            <Star 
-                              key={i} 
-                              className="h-3 w-3 text-accent-500 fill-current" 
-                            />
-                          ))}
-                          <Star className="h-3 w-3 text-gray-300" />
-                          <span className="text-xs text-gray-500 ml-2">2 months ago</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-gray-700">
-                      I had a pleasant stay at this PG. The food was good and the staff was friendly. 
-                      The only issue was that the WiFi was a bit slow during peak hours. Overall, a good experience.
-                    </p>
-                  </div>
-                  
-                  <Button variant="outline" className="w-full">
-                    View All Reviews
-                  </Button>
                 </div>
               </div>
             </div>
@@ -467,42 +462,71 @@ const PropertyDetailsPage: React.FC = () => {
             {/* Booking Card */}
             <div className="md:col-span-1">
               <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 sticky top-20">
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xl font-bold text-gray-900">{formatPrice(property.price)}</span>
-                    <span className="text-gray-600">/month</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Star className="h-4 w-4 text-accent-500 fill-current" />
-                    <span className="font-semibold ml-1">{property.rating}</span>
-                    <span className="text-gray-500 text-sm ml-1">({property.reviewCount} reviews)</span>
-                  </div>
-                </div>
-                
-                <div className="border-t border-b border-gray-100 py-4 my-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-gray-600">Refundable Deposit</span>
-                    <span className="font-semibold">{formatPrice(property.deposit)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Room Type</span>
-                    <span className="font-semibold capitalize">{property.type}</span>
-                  </div>
-                </div>
-                
                 {!showBookingForm ? (
-                  <Button 
-                    onClick={handleBookNow}
-                    className="w-full mb-4"
-                  >
-                    Book Now
-                  </Button>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">Room Options</h3>
+                    <div className="space-y-4">
+                      {availableRooms.map((room) => (
+                        <div key={room.type} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-semibold">{room.label}</span>
+                            <span className="text-sm text-gray-500">{room.count} available</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-lg font-bold text-primary-600">
+                              {formatPrice(room.price)}
+                            </span>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleBookNow(room.type)}
+                            >
+                              Book
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="mt-6 pt-6 border-t border-gray-100">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600">Refundable Deposit</span>
+                        <span className="font-semibold">{formatPrice(property.deposit)}</span>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="mb-4">
-                    <h3 className="font-semibold mb-2 flex items-center">
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-gray-900">Book Room</h3>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setShowBookingForm(false)}
+                      >
+                        Back
+                      </Button>
+                    </div>
+                    
+                    {selectedRoomType && (
+                      <div className="mb-4 p-3 bg-primary-50 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">{getRoomTypeLabel(selectedRoomType)}</span>
+                          <span className="text-lg font-bold text-primary-600">
+                            {formatPrice(
+                              selectedRoomType === 'SINGLE' ? property.singlePrice :
+                              selectedRoomType === 'DOUBLE' ? property.doublePrice :
+                              selectedRoomType === 'TRIPLE' ? property.triplePrice :
+                              property.quadPrice
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <h4 className="font-semibold mb-2 flex items-center">
                       <Calendar className="h-4 w-4 mr-2" />
                       Select Dates
-                    </h3>
+                    </h4>
                     
                     <div className="border border-gray-200 rounded-lg p-2 mb-4">
                       <DayPicker
@@ -516,7 +540,7 @@ const PropertyDetailsPage: React.FC = () => {
                       />
                     </div>
                     
-                    {startDate && endDate && (
+                    {startDate && endDate && selectedRoomType && (
                       <div className="mb-4">
                         <div className="flex justify-between mb-2">
                           <span className="text-gray-600">Check-in</span>
@@ -534,33 +558,31 @@ const PropertyDetailsPage: React.FC = () => {
                         </div>
                         <div className="flex justify-between font-bold text-lg mt-4 pt-4 border-t border-gray-100">
                           <span>Total</span>
-                          <span>{formatPrice(property.price * calculateDurationInDays(startDate, endDate))}</span>
+                          <span>
+                            {formatPrice(
+                              (selectedRoomType === 'SINGLE' ? property.singlePrice :
+                               selectedRoomType === 'DOUBLE' ? property.doublePrice :
+                               selectedRoomType === 'TRIPLE' ? property.triplePrice :
+                               property.quadPrice) * calculateDurationInDays(startDate, endDate)
+                            )}
+                          </span>
                         </div>
                       </div>
                     )}
                     
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant="outline" 
-                        className="w-1/2"
-                        onClick={() => setShowBookingForm(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        className="w-1/2"
-                        onClick={handleConfirmBooking}
-                        disabled={!startDate || !endDate}
-                      >
-                        Confirm Booking
-                      </Button>
-                    </div>
+                    <Button 
+                      className="w-full"
+                      onClick={handleConfirmBooking}
+                      disabled={!startDate || !endDate || !selectedRoomType}
+                    >
+                      Confirm Booking
+                    </Button>
                   </div>
                 )}
                 
-                <div className="text-center text-sm text-gray-500">
+                <div className="text-center text-sm text-gray-500 mt-4">
                   <p className="mb-2">No charges until booking is confirmed</p>
-                  <div className="flex justify-center space-x-4 mt-4">
+                  <div className="flex justify-center space-x-4">
                     <div className="flex items-center">
                       <Check className="h-4 w-4 text-green-500 mr-1" />
                       <span>Free cancellation</span>

@@ -9,7 +9,21 @@ export type User = {
   createdAt: Date
 }
 
-export type PropertyType = 'SINGLE' | 'DOUBLE' | 'TRIPLE' | 'SHARED'
+export type PropertyType = 'SINGLE' | 'DOUBLE' | 'TRIPLE' | 'QUAD'
+
+export type RoomAvailability = {
+  singleRooms: number
+  doubleRooms: number
+  tripleRooms: number
+  quadRooms: number
+}
+
+export type RoomPricing = {
+  singlePrice: number
+  doublePrice: number
+  triplePrice: number
+  quadPrice: number
+}
 
 export type Property = {
   id: string
@@ -18,13 +32,30 @@ export type Property = {
   address: string
   city: string
   state: string
+  stateId: string
+  district: string
+  districtId: string
   pincode: string
-  price: number
+  
+  // Room availability and pricing
+  singleRooms: number
+  doubleRooms: number
+  tripleRooms: number
+  quadRooms: number
+  singlePrice: number
+  doublePrice: number
+  triplePrice: number
+  quadPrice: number
+  
   deposit: number
   amenities: string[]
   images: string[]
+  
+  // Legacy fields for backward compatibility
   type: PropertyType
   capacity: number
+  price: number
+  
   rating: number
   reviewCount: number
   ownerId: string
@@ -44,6 +75,7 @@ export type Booking = {
   userName: string
   startDate: Date
   endDate: Date
+  roomType: PropertyType
   totalAmount: number
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
   paymentStatus: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED'
@@ -77,4 +109,20 @@ export type OtpCode = {
   isUsed: boolean
   createdAt: Date
   userId?: string
+}
+
+export type LocationFilter = {
+  stateId?: string
+  districtId?: string
+  city?: string
+}
+
+export type PropertyFilters = {
+  location: LocationFilter
+  priceRange: {
+    min: number
+    max: number
+  }
+  roomTypes: PropertyType[]
+  amenities: string[]
 }
