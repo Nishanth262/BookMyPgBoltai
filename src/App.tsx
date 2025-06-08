@@ -5,12 +5,24 @@ import HomePage from './pages/HomePage'
 import PropertyDetailsPage from './pages/PropertyDetailsPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import AdminPage from './pages/AdminPage'
 
 // Auth guard component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuthStore()
   
   if (!isAuthenticated) {
+    return <Navigate to="/login" />
+  }
+  
+  return <>{children}</>
+}
+
+// Admin route guard
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, user } = useAuthStore()
+  
+  if (!isAuthenticated || user?.role !== 'ADMIN') {
     return <Navigate to="/login" />
   }
   
@@ -51,6 +63,16 @@ function App() {
         <Route path="/property/:id" element={<PropertyDetailsPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        
+        {/* Admin routes */}
+        <Route 
+          path="/admin" 
+          element={
+            <AdminRoute>
+              <AdminPage />
+            </AdminRoute>
+          } 
+        />
         
         {/* These routes would be implemented in a full app */}
         <Route path="/properties" element={<HomePage />} />

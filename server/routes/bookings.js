@@ -4,7 +4,8 @@ import {
   getUserBookings,
   getBookingById,
   updateBookingStatus,
-  cancelBooking
+  cancelBooking,
+  extendBooking
 } from '../controllers/bookings.js';
 import { validateBooking } from '../middleware/validation.js';
 
@@ -13,7 +14,8 @@ const router = express.Router();
 router.post('/', validateBooking, createBooking);
 router.get('/user', getUserBookings);
 router.get('/:id', getBookingById);
-router.put('/:id/status', updateBookingStatus);
-router.put('/:id/cancel', cancelBooking);
+router.patch('/:id/status', updateBookingStatus);
+router.patch('/:id/cancel', cancelBooking);
+router.patch('/:id/extend', extendBooking);
 
 export default router;

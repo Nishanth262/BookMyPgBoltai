@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Booking } from '../lib/types'
+import { Booking, BookingRequest } from '../lib/types'
 import { generateBookingId } from '../lib/utils'
 
 interface BookingState {
@@ -8,44 +8,13 @@ interface BookingState {
   error: string | null
   currentBooking: Booking | null
   fetchUserBookings: (userId: string) => Promise<void>
-  createBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => Promise<Booking>
+  createBooking: (booking: BookingRequest) => Promise<Booking>
   cancelBooking: (bookingId: string) => Promise<void>
+  extendBooking: (bookingId: string, additionalMonths: number) => Promise<void>
   setCurrentBooking: (booking: Booking | null) => void
 }
 
-// Mock bookings data
-const mockBookings: Booking[] = [
-  {
-    id: 'BK123456',
-    propertyId: '1',
-    propertyName: 'Modern PG with Balcony',
-    propertyImage: 'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-    userId: '1',
-    userName: 'John Doe',
-    startDate: new Date('2023-11-01'),
-    endDate: new Date('2023-12-01'),
-    totalAmount: 12000,
-    status: 'completed',
-    paymentStatus: 'completed',
-    paymentMethod: 'Credit Card',
-    createdAt: new Date('2023-10-15')
-  },
-  {
-    id: 'BK234567',
-    propertyId: '3',
-    propertyName: 'Premium Single Room PG',
-    propertyImage: 'https://images.pexels.com/photos/1648768/pexels-photo-1648768.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-    userId: '1',
-    userName: 'John Doe',
-    startDate: new Date('2024-01-01'),
-    endDate: new Date('2024-02-01'),
-    totalAmount: 15000,
-    status: 'confirmed',
-    paymentStatus: 'completed',
-    paymentMethod: 'UPI',
-    createdAt: new Date('2023-12-15')
-  }
-]
+const API_BASE_URL = 'http://localhost:5000/api'
 
 export const useBookingStore = create<BookingState>((set, get) => ({
   bookings: [],
@@ -57,18 +26,27 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     set({ isLoading: true, error: null })
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch(`${API_BASE_URL}/bookings/user`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
       
-      const userBookings = mockBookings.filter(b => b.userId === userId)
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings')
+      }
+      
+      const bookings = await response.json()
       
       set({ 
-        bookings: userBookings,
+        bookings,
         isLoading: false 
       })
-    } catch (error) {
+    } catch (error: any) {
       set({ 
-        error: 'Failed to fetch bookings', 
+        error: error.message || 'Failed to fetch bookings', 
         isLoading: false 
       })
     }
@@ -78,27 +56,34 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     set({ isLoading: true, error: null })
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch(`${API_BASE_URL}/bookings`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(bookingData)
+      })
       
-      const newBooking: Booking = {
-        ...bookingData,
-        id: generateBookingId(),
-        createdAt: new Date(),
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create booking')
       }
       
-      mockBookings.push(newBooking)
+      const newBooking = data.booking
       
       set(state => ({ 
-        bookings: [...state.bookings, newBooking],
+        bookings: [newBooking, ...state.bookings],
         isLoading: false,
         currentBooking: newBooking
       }))
       
       return newBooking
-    } catch (error) {
+    } catch (error: any) {
       set({ 
-        error: 'Failed to create booking', 
+        error: error.message || 'Failed to create booking', 
         isLoading: false 
       })
       throw error
@@ -109,26 +94,65 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     set({ isLoading: true, error: null })
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/cancel`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
       
-      const bookingIndex = mockBookings.findIndex(b => b.id === bookingId)
+      const data = await response.json()
       
-      if (bookingIndex !== -1) {
-        mockBookings[bookingIndex].status = 'cancelled'
-        
-        set(state => ({
-          bookings: state.bookings.map(b => 
-            b.id === bookingId ? { ...b, status: 'cancelled' } : b
-          ),
-          isLoading: false
-        }))
-      } else {
-        throw new Error('Booking not found')
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to cancel booking')
       }
-    } catch (error) {
+      
+      set(state => ({
+        bookings: state.bookings.map(b => 
+          b.id === bookingId ? { ...b, status: 'CANCELLED', isActive: false } : b
+        ),
+        isLoading: false
+      }))
+    } catch (error: any) {
       set({ 
-        error: 'Failed to cancel booking', 
+        error: error.message || 'Failed to cancel booking', 
+        isLoading: false 
+      })
+      throw error
+    }
+  },
+  
+  extendBooking: async (bookingId, additionalMonths) => {
+    set({ isLoading: true, error: null })
+    
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}/extend`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ additionalMonths })
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to extend booking')
+      }
+      
+      set(state => ({
+        bookings: state.bookings.map(b => 
+          b.id === bookingId ? data.booking : b
+        ),
+        isLoading: false
+      }))
+    } catch (error: any) {
+      set({ 
+        error: error.message || 'Failed to extend booking', 
         isLoading: false 
       })
       throw error

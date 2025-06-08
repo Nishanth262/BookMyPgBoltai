@@ -42,20 +42,29 @@ const propertySchema = z.object({
   address: z.string(),
   city: z.string(),
   state: z.string(),
+  stateId: z.string(),
+  district: z.string(),
+  districtId: z.string(),
   pincode: z.string(),
-  price: z.number().positive(),
+  singleRooms: z.number().min(0),
+  doubleRooms: z.number().min(0),
+  tripleRooms: z.number().min(0),
+  quadRooms: z.number().min(0),
+  singlePrice: z.number().positive(),
+  doublePrice: z.number().positive(),
+  triplePrice: z.number().positive(),
+  quadPrice: z.number().positive(),
   deposit: z.number().positive(),
   amenities: z.array(z.string()),
-  images: z.array(z.string().url()),
-  type: z.enum(['SINGLE', 'DOUBLE', 'TRIPLE', 'SHARED']),
-  capacity: z.number().positive(),
-  available: z.boolean()
+  images: z.array(z.string().url())
 });
 
 const bookingSchema = z.object({
   propertyId: z.string(),
-  startDate: z.string().transform(str => new Date(str)),
-  endDate: z.string().transform(str => new Date(str))
+  roomType: z.enum(['SINGLE', 'DOUBLE', 'TRIPLE', 'QUAD']),
+  startMonth: z.number().min(1).max(12),
+  startYear: z.number().min(2024),
+  durationMonths: z.number().min(1).max(12)
 });
 
 export const validatePhone = (req, res, next) => {
