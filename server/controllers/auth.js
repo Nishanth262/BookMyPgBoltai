@@ -13,30 +13,58 @@ export const sendLoginOtp = async (req, res) => {
       return res.status(400).json({ message: 'Phone number is required' });
     }
 
+    // Clean phone number - remove spaces, dashes, and ensure proper format
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    
     // Validate phone number format (basic validation)
-    const phoneRegex = /^[+]?[1-9]\d{1,14}$/;
-    if (!phoneRegex.test(phone)) {
-      return res.status(400).json({ message: 'Invalid phone number format' });
+    const phoneRegex = /^(\+91|91)?[6-9]\d{9}$/;
+    if (!phoneRegex.test(cleanPhone)) {
+      return res.status(400).json({ message: 'Invalid phone number format. Please enter a valid Indian mobile number.' });
     }
 
+    // Normalize phone number
+    let normalizedPhone = cleanPhone;
+    if (normalizedPhone.startsWith('+91')) {
+      normalizedPhone = normalizedPhone.substring(3);
+    } else if (normalizedPhone.startsWith('91')) {
+      normalizedPhone = normalizedPhone.substring(2);
+    }
+    normalizedPhone = '+91' + normalizedPhone;
+
     // Check if user exists
-    const user = await prisma.user.findUnique({ where: { phone } });
+    const user = await prisma.user.findUnique({ 
+      where: { phone: normalizedPhone } 
+    });
+    
     if (!user) {
-      return res.status(404).json({ message: 'User not found. Please sign up first.' });
+      return res.status(404).json({ 
+        message: 'User not found. Please sign up first.',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ 
+        message: 'Your account has been blocked. Please contact support.',
+        code: 'ACCOUNT_BLOCKED'
+      });
     }
 
     // Generate and send OTP
-    const otpRecord = await otpService.createOtp(phone, 'LOGIN', user.id);
-    await otpService.sendOtp(phone, otpRecord.code, 'LOGIN');
+    const otpRecord = await otpService.createOtp(normalizedPhone, 'LOGIN', user.id);
+    await otpService.sendOtp(normalizedPhone, otpRecord.code, 'LOGIN');
 
     res.json({
       message: 'OTP sent successfully',
-      phone,
+      phone: normalizedPhone,
       expiresAt: otpRecord.expiresAt
     });
   } catch (error) {
     console.error('Send login OTP error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ 
+      message: 'Server error. Please try again later.', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 };
 
@@ -49,20 +77,50 @@ export const verifyLoginOtp = async (req, res) => {
       return res.status(400).json({ message: 'Phone number and OTP are required' });
     }
 
+    // Clean and normalize phone number
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    let normalizedPhone = cleanPhone;
+    if (normalizedPhone.startsWith('+91')) {
+      normalizedPhone = normalizedPhone.substring(3);
+    } else if (normalizedPhone.startsWith('91')) {
+      normalizedPhone = normalizedPhone.substring(2);
+    }
+    normalizedPhone = '+91' + normalizedPhone;
+
     // Verify OTP
-    await otpService.verifyOtp(phone, otp, 'LOGIN');
+    await otpService.verifyOtp(normalizedPhone, otp, 'LOGIN');
 
     // Get user
-    const user = await prisma.user.findUnique({ where: { phone } });
+    const user = await prisma.user.findUnique({ 
+      where: { phone: normalizedPhone },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        avatar: true,
+        isVerified: true,
+        isBlocked: true
+      }
+    });
+    
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ 
+        message: 'Your account has been blocked. Please contact support.',
+        code: 'ACCOUNT_BLOCKED'
+      });
     }
 
     // Generate tokens
     const accessToken = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '24h' } // Extended to 24 hours for better UX
     );
 
     const refreshToken = jwt.sign(
@@ -72,6 +130,7 @@ export const verifyLoginOtp = async (req, res) => {
     );
 
     res.json({
+      success: true,
       user: {
         id: user.id,
         name: user.name,
@@ -86,7 +145,18 @@ export const verifyLoginOtp = async (req, res) => {
     });
   } catch (error) {
     console.error('Verify login OTP error:', error);
-    res.status(400).json({ message: error.message || 'Invalid OTP' });
+    
+    if (error.message === 'Invalid or expired OTP') {
+      return res.status(400).json({ 
+        message: 'Invalid or expired OTP. Please try again.',
+        code: 'INVALID_OTP'
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Server error. Please try again later.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -99,30 +169,49 @@ export const sendSignupOtp = async (req, res) => {
       return res.status(400).json({ message: 'Phone number is required' });
     }
 
-    // Validate phone number format
-    const phoneRegex = /^[+]?[1-9]\d{1,14}$/;
-    if (!phoneRegex.test(phone)) {
-      return res.status(400).json({ message: 'Invalid phone number format' });
+    // Clean and validate phone number
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    const phoneRegex = /^(\+91|91)?[6-9]\d{9}$/;
+    if (!phoneRegex.test(cleanPhone)) {
+      return res.status(400).json({ message: 'Invalid phone number format. Please enter a valid Indian mobile number.' });
     }
 
+    // Normalize phone number
+    let normalizedPhone = cleanPhone;
+    if (normalizedPhone.startsWith('+91')) {
+      normalizedPhone = normalizedPhone.substring(3);
+    } else if (normalizedPhone.startsWith('91')) {
+      normalizedPhone = normalizedPhone.substring(2);
+    }
+    normalizedPhone = '+91' + normalizedPhone;
+
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({ where: { phone } });
+    const existingUser = await prisma.user.findUnique({ 
+      where: { phone: normalizedPhone } 
+    });
+    
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists with this phone number' });
+      return res.status(400).json({ 
+        message: 'User already exists with this phone number. Please login instead.',
+        code: 'USER_EXISTS'
+      });
     }
 
     // Generate and send OTP
-    const otpRecord = await otpService.createOtp(phone, 'SIGNUP');
-    await otpService.sendOtp(phone, otpRecord.code, 'SIGNUP');
+    const otpRecord = await otpService.createOtp(normalizedPhone, 'SIGNUP');
+    await otpService.sendOtp(normalizedPhone, otpRecord.code, 'SIGNUP');
 
     res.json({
       message: 'OTP sent successfully',
-      phone,
+      phone: normalizedPhone,
       expiresAt: otpRecord.expiresAt
     });
   } catch (error) {
     console.error('Send signup OTP error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ 
+      message: 'Server error. Please try again later.', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 };
 
@@ -135,30 +224,51 @@ export const verifySignupOtp = async (req, res) => {
       return res.status(400).json({ message: 'Name, phone number and OTP are required' });
     }
 
+    // Clean and normalize phone number
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    let normalizedPhone = cleanPhone;
+    if (normalizedPhone.startsWith('+91')) {
+      normalizedPhone = normalizedPhone.substring(3);
+    } else if (normalizedPhone.startsWith('91')) {
+      normalizedPhone = normalizedPhone.substring(2);
+    }
+    normalizedPhone = '+91' + normalizedPhone;
+
     // Verify OTP
-    await otpService.verifyOtp(phone, otp, 'SIGNUP');
+    await otpService.verifyOtp(normalizedPhone, otp, 'SIGNUP');
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({ where: { phone } });
+    const existingUser = await prisma.user.findUnique({ 
+      where: { phone: normalizedPhone } 
+    });
+    
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ 
+        message: 'User already exists with this phone number',
+        code: 'USER_EXISTS'
+      });
     }
 
     // Check email uniqueness if provided
-    if (email) {
-      const existingEmailUser = await prisma.user.findUnique({ where: { email } });
+    if (email && email.trim()) {
+      const existingEmailUser = await prisma.user.findUnique({ 
+        where: { email: email.trim().toLowerCase() } 
+      });
       if (existingEmailUser) {
-        return res.status(400).json({ message: 'Email already in use' });
+        return res.status(400).json({ 
+          message: 'Email already in use',
+          code: 'EMAIL_EXISTS'
+        });
       }
     }
 
     // Create user
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
-        phone,
-        role,
+        name: name.trim(),
+        email: email && email.trim() ? email.trim().toLowerCase() : null,
+        phone: normalizedPhone,
+        role: role.toUpperCase(),
         isVerified: true
       }
     });
@@ -167,7 +277,7 @@ export const verifySignupOtp = async (req, res) => {
     const accessToken = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '24h' }
     );
 
     const refreshToken = jwt.sign(
@@ -177,6 +287,7 @@ export const verifySignupOtp = async (req, res) => {
     );
 
     res.status(201).json({
+      success: true,
       user: {
         id: user.id,
         name: user.name,
@@ -191,7 +302,18 @@ export const verifySignupOtp = async (req, res) => {
     });
   } catch (error) {
     console.error('Verify signup OTP error:', error);
-    res.status(400).json({ message: error.message || 'Invalid OTP' });
+    
+    if (error.message === 'Invalid or expired OTP') {
+      return res.status(400).json({ 
+        message: 'Invalid or expired OTP. Please try again.',
+        code: 'INVALID_OTP'
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Server error. Please try again later.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -208,20 +330,36 @@ export const refreshToken = async (req, res) => {
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     
     // Get user
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    const user = await prisma.user.findUnique({ 
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        role: true,
+        isBlocked: true
+      }
+    });
+    
     if (!user) {
       return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ 
+        message: 'Account blocked',
+        code: 'ACCOUNT_BLOCKED'
+      });
     }
 
     // Generate new access token
     const accessToken = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '24h' }
     );
 
     res.json({ accessToken });
   } catch (error) {
+    console.error('Refresh token error:', error);
     res.status(401).json({ message: 'Invalid refresh token' });
   }
 };
@@ -239,33 +377,62 @@ export const resendOtp = async (req, res) => {
       return res.status(400).json({ message: 'Invalid OTP type' });
     }
 
+    // Clean and normalize phone number
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    let normalizedPhone = cleanPhone;
+    if (normalizedPhone.startsWith('+91')) {
+      normalizedPhone = normalizedPhone.substring(3);
+    } else if (normalizedPhone.startsWith('91')) {
+      normalizedPhone = normalizedPhone.substring(2);
+    }
+    normalizedPhone = '+91' + normalizedPhone;
+
     // For login, check if user exists
     if (type === 'LOGIN') {
-      const user = await prisma.user.findUnique({ where: { phone } });
+      const user = await prisma.user.findUnique({ 
+        where: { phone: normalizedPhone } 
+      });
       if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ 
+          message: 'User not found',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+      if (user.isBlocked) {
+        return res.status(403).json({ 
+          message: 'Account blocked',
+          code: 'ACCOUNT_BLOCKED'
+        });
       }
     }
 
     // For signup, check if user doesn't exist
     if (type === 'SIGNUP') {
-      const existingUser = await prisma.user.findUnique({ where: { phone } });
+      const existingUser = await prisma.user.findUnique({ 
+        where: { phone: normalizedPhone } 
+      });
       if (existingUser) {
-        return res.status(400).json({ message: 'User already exists' });
+        return res.status(400).json({ 
+          message: 'User already exists',
+          code: 'USER_EXISTS'
+        });
       }
     }
 
     // Generate and send new OTP
-    const otpRecord = await otpService.createOtp(phone, type);
-    await otpService.sendOtp(phone, otpRecord.code, type);
+    const otpRecord = await otpService.createOtp(normalizedPhone, type);
+    await otpService.sendOtp(normalizedPhone, otpRecord.code, type);
 
     res.json({
       message: 'OTP resent successfully',
-      phone,
+      phone: normalizedPhone,
       expiresAt: otpRecord.expiresAt
     });
   } catch (error) {
     console.error('Resend OTP error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ 
+      message: 'Server error. Please try again later.', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 };

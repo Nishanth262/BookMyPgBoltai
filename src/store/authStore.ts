@@ -7,6 +7,7 @@ interface AuthState {
   isLoading: boolean
   otpSent: boolean
   otpPhone: string | null
+  error: string | null
   sendLoginOtp: (phone: string) => Promise<void>
   verifyLoginOtp: (phone: string, otp: string) => Promise<void>
   sendSignupOtp: (phone: string) => Promise<void>
@@ -14,6 +15,7 @@ interface AuthState {
   resendOtp: (phone: string, type: 'LOGIN' | 'SIGNUP') => Promise<void>
   logout: () => void
   clearOtpState: () => void
+  clearError: () => void
 }
 
 const API_BASE_URL = 'http://localhost:5000/api'
@@ -24,9 +26,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   otpSent: false,
   otpPhone: null,
+  error: null,
   
   sendLoginOtp: async (phone: string) => {
-    set({ isLoading: true })
+    set({ isLoading: true, error: null })
     
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login/send-otp`, {
@@ -45,17 +48,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       set({ 
         otpSent: true, 
-        otpPhone: phone, 
-        isLoading: false 
+        otpPhone: data.phone, 
+        isLoading: false,
+        error: null
       })
     } catch (error: any) {
-      set({ isLoading: false })
+      set({ 
+        isLoading: false,
+        error: error.message || 'Failed to send OTP'
+      })
       throw error
     }
   },
   
   verifyLoginOtp: async (phone: string, otp: string) => {
-    set({ isLoading: true })
+    set({ isLoading: true, error: null })
     
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login/verify-otp`, {
@@ -77,20 +84,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true, 
         isLoading: false,
         otpSent: false,
-        otpPhone: null
+        otpPhone: null,
+        error: null
       })
       
       localStorage.setItem('user', JSON.stringify(data.user))
       localStorage.setItem('accessToken', data.accessToken)
       localStorage.setItem('refreshToken', data.refreshToken)
     } catch (error: any) {
-      set({ isLoading: false })
+      set({ 
+        isLoading: false,
+        error: error.message || 'Invalid OTP'
+      })
       throw error
     }
   },
   
   sendSignupOtp: async (phone: string) => {
-    set({ isLoading: true })
+    set({ isLoading: true, error: null })
     
     try {
       const response = await fetch(`${API_BASE_URL}/auth/signup/send-otp`, {
@@ -109,17 +120,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       set({ 
         otpSent: true, 
-        otpPhone: phone, 
-        isLoading: false 
+        otpPhone: data.phone, 
+        isLoading: false,
+        error: null
       })
     } catch (error: any) {
-      set({ isLoading: false })
+      set({ 
+        isLoading: false,
+        error: error.message || 'Failed to send OTP'
+      })
       throw error
     }
   },
   
   verifySignupOtp: async (name: string, email: string, phone: string, otp: string, role = 'USER') => {
-    set({ isLoading: true })
+    set({ isLoading: true, error: null })
     
     try {
       const response = await fetch(`${API_BASE_URL}/auth/signup/verify-otp`, {
@@ -141,20 +156,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true, 
         isLoading: false,
         otpSent: false,
-        otpPhone: null
+        otpPhone: null,
+        error: null
       })
       
       localStorage.setItem('user', JSON.stringify(data.user))
       localStorage.setItem('accessToken', data.accessToken)
       localStorage.setItem('refreshToken', data.refreshToken)
     } catch (error: any) {
-      set({ isLoading: false })
+      set({ 
+        isLoading: false,
+        error: error.message || 'Invalid OTP'
+      })
       throw error
     }
   },
   
   resendOtp: async (phone: string, type: 'LOGIN' | 'SIGNUP') => {
-    set({ isLoading: true })
+    set({ isLoading: true, error: null })
     
     try {
       const response = await fetch(`${API_BASE_URL}/auth/resend-otp`, {
@@ -171,9 +190,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error(data.message || 'Failed to resend OTP')
       }
       
-      set({ isLoading: false })
+      set({ isLoading: false, error: null })
     } catch (error: any) {
-      set({ isLoading: false })
+      set({ 
+        isLoading: false,
+        error: error.message || 'Failed to resend OTP'
+      })
       throw error
     }
   },
@@ -183,7 +205,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null, 
       isAuthenticated: false,
       otpSent: false,
-      otpPhone: null
+      otpPhone: null,
+      error: null
     })
     localStorage.removeItem('user')
     localStorage.removeItem('accessToken')
@@ -193,7 +216,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearOtpState: () => {
     set({ 
       otpSent: false, 
-      otpPhone: null 
+      otpPhone: null,
+      error: null
     })
+  },
+
+  clearError: () => {
+    set({ error: null })
   }
 }))

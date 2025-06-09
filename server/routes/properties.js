@@ -16,9 +16,9 @@ router.get('/', getAllProperties);
 router.get('/featured', getFeaturedProperties);
 router.get('/:id', getPropertyById);
 
-// Protected routes
-router.post('/', authenticateToken, authorizeRole(['owner', 'admin']), validateProperty, createProperty);
-router.put('/:id', authenticateToken, authorizeRole(['owner', 'admin']), validateProperty, updateProperty);
-router.delete('/:id', authenticateToken, authorizeRole(['owner', 'admin']), deleteProperty);
+// Protected routes - Fixed role names to match enum
+router.post('/', authenticateToken, authorizeRole(['OWNER', 'ADMIN']), validateProperty, createProperty);
+router.put('/:id', authenticateToken, authorizeRole(['OWNER', 'ADMIN']), validateProperty, updateProperty);
+router.delete('/:id', authenticateToken, authorizeRole(['OWNER', 'ADMIN']), deleteProperty);
 
 export default router;

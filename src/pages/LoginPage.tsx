@@ -11,7 +11,6 @@ import { HomeIcon, Phone, Shield, AlertCircle, ArrowLeft, RotateCcw } from 'luci
 const LoginPage: React.FC = () => {
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
-  const [error, setError] = useState('')
   const [countdown, setCountdown] = useState(0)
   
   const { 
@@ -22,7 +21,9 @@ const LoginPage: React.FC = () => {
     isAuthenticated, 
     otpSent, 
     otpPhone,
-    clearOtpState
+    error,
+    clearOtpState,
+    clearError
   } = useAuthStore()
   
   const navigate = useNavigate()
@@ -43,50 +44,55 @@ const LoginPage: React.FC = () => {
     return () => clearTimeout(timer)
   }, [countdown])
 
+  // Clear error when component unmounts or when user starts typing
+  useEffect(() => {
+    return () => clearError()
+  }, [clearError])
+
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digits
     const digits = value.replace(/\D/g, '')
     
-    // Add country code if not present
-    if (digits.length > 0 && !digits.startsWith('91')) {
-      return '+91' + digits
-    } else if (digits.startsWith('91')) {
-      return '+' + digits
+    // Limit to 10 digits for Indian mobile numbers
+    const limitedDigits = digits.slice(0, 10)
+    
+    // Add country code if not present and we have 10 digits
+    if (limitedDigits.length === 10 && limitedDigits.startsWith('6789'.charAt(0))) {
+      return '+91' + limitedDigits
     }
     
-    return digits
+    return limitedDigits
   }
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    clearError()
     
     if (!phone) {
-      setError('Please enter your phone number')
       return
     }
     
     const formattedPhone = formatPhoneNumber(phone)
     
+    // Validate phone number
+    if (formattedPhone.length < 10) {
+      return
+    }
+    
     try {
       await sendLoginOtp(formattedPhone)
       setCountdown(60) // Start 60 second countdown
     } catch (error: any) {
-      setError(error.message || 'Failed to send OTP')
+      // Error is handled by the store
+      console.error('Login OTP error:', error)
     }
   }
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    clearError()
     
-    if (!otp) {
-      setError('Please enter the OTP')
-      return
-    }
-    
-    if (otp.length !== 6) {
-      setError('OTP must be 6 digits')
+    if (!otp || otp.length !== 6) {
       return
     }
     
@@ -94,26 +100,40 @@ const LoginPage: React.FC = () => {
       await verifyLoginOtp(otpPhone!, otp)
       navigate('/')
     } catch (error: any) {
-      setError(error.message || 'Invalid OTP')
+      // Error is handled by the store
+      console.error('Verify OTP error:', error)
     }
   }
 
   const handleResendOtp = async () => {
     if (countdown > 0) return
     
-    setError('')
+    clearError()
     try {
       await resendOtp(otpPhone!, 'LOGIN')
       setCountdown(60)
     } catch (error: any) {
-      setError(error.message || 'Failed to resend OTP')
+      // Error is handled by the store
+      console.error('Resend OTP error:', error)
     }
   }
 
   const handleBack = () => {
     clearOtpState()
     setOtp('')
-    setError('')
+    clearError()
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    clearError()
+    const value = e.target.value.replace(/\D/g, '').slice(0, 10)
+    setPhone(value)
+  }
+
+  const handleOtpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    clearError()
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6)
+    setOtp(value)
   }
 
   return (
@@ -163,13 +183,17 @@ const LoginPage: React.FC = () => {
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Phone className="h-5 w-5 text-gray-400" />
                       </div>
+                      <div className="absolute inset-y-0 left-10 flex items-center pointer-events-none">
+                        <span className="text-gray-500 text-sm">+91</span>
+                      </div>
                       <Input
                         id="phone"
                         type="tel"
-                        placeholder="Enter your phone number"
+                        placeholder="Enter 10-digit mobile number"
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="pl-10"
+                        onChange={handlePhoneChange}
+                        className="pl-16"
+                        maxLength={10}
                         required
                       />
                     </div>
@@ -181,7 +205,7 @@ const LoginPage: React.FC = () => {
                   <Button
                     type="submit"
                     className="w-full"
-                    disabled={isLoading}
+                    disabled={isLoading || phone.length < 10}
                   >
                     {isLoading ? (
                       <div className="flex items-center justify-center">
@@ -210,12 +234,17 @@ const LoginPage: React.FC = () => {
                         type="text"
                         placeholder="Enter 6-digit code"
                         value={otp}
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        onChange={handleOtpChange}
                         className="pl-10 text-center text-lg tracking-widest"
                         maxLength={6}
                         required
                       />
                     </div>
+                    {process.env.NODE_ENV === 'development' && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        Development mode: Check console for OTP
+                      </p>
+                    )}
                   </div>
                   
                   <div className="flex space-x-3">
