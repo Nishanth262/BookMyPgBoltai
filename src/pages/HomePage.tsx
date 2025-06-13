@@ -44,9 +44,16 @@ const HomePage: React.FC = () => {
                 animate="visible"
                 variants={fadeIn}
               >
-                <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4">
-                  Find Your Perfect <span className="text-accent-400">PG Accommodation</span> with Ease
-                </h1>
+                <div className="flex items-center mb-6">
+                  <img 
+                    src="/src/assets/P G.png" 
+                    alt="BookMyPG Logo" 
+                    className="h-16 w-16 object-contain mr-4"
+                  />
+                  <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+                    Find Your Perfect <span className="text-accent-400">PG Accommodation</span> with Ease
+                  </h1>
+                </div>
                 <p className="text-lg md:text-xl text-gray-200 mb-8">
                   Book comfortable and affordable PG stays across the city. Verified properties, 
                   transparent pricing, and hassle-free booking experience.

@@ -7,7 +7,6 @@ import { Footer } from '../components/layout/Footer'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { 
-  HomeIcon, 
   Phone, 
   Shield, 
   AlertCircle, 
@@ -170,7 +169,11 @@ const RegisterPage: React.FC = () => {
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
                 <div className="bg-primary-100 p-3 rounded-full">
-                  <HomeIcon className="h-8 w-8 text-primary-600" />
+                  <img 
+                    src="/src/assets/P G.png" 
+                    alt="BookMyPG Logo" 
+                    className="h-8 w-8 object-contain"
+                  />
                 </div>
               </div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">

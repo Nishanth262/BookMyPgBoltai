@@ -39,9 +39,13 @@ export const Header: React.FC = () => {
           <Link to="/" className="flex items-center space-x-2">
             <motion.div 
               whileHover={{ scale: 1.05 }}
-              className="text-primary-600"
+              className="flex items-center"
             >
-              <HomeIcon size={28} />
+              <img 
+                src="/src/assets/P G.png" 
+                alt="BookMyPG Logo" 
+                className="h-10 w-10 object-contain"
+              />
             </motion.div>
             <motion.h1 
               className="text-2xl font-bold bg-gradient-to-r from-primary-600 to-secondary-500 bg-clip-text text-transparent"
