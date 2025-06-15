@@ -44,7 +44,7 @@ export const Header: React.FC = () => {
               <img 
                 src="/src/assets/P G.png" 
                 alt="BookMyPG Logo" 
-                className="h-10 w-10 object-contain"
+                className="h-10 w-10 object-cover rounded-full shadow-sm border-2 border-primary-200"
               />
             </motion.div>
             <motion.h1 

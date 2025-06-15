@@ -172,7 +172,7 @@ const RegisterPage: React.FC = () => {
                   <img 
                     src="/src/assets/P G.png" 
                     alt="BookMyPG Logo" 
-                    className="h-8 w-8 object-contain"
+                    className="h-8 w-8 object-cover rounded-full"
                   />
                 </div>
               </div>

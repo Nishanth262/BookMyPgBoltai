@@ -48,7 +48,7 @@ const HomePage: React.FC = () => {
                   <img 
                     src="/src/assets/P G.png" 
                     alt="BookMyPG Logo" 
-                    className="h-16 w-16 object-contain mr-4"
+                    className="h-16 w-16 object-cover rounded-full shadow-lg border-4 border-white/20 mr-4"
                   />
                   <h1 className="text-4xl md:text-5xl font-bold leading-tight">
                     Find Your Perfect <span className="text-accent-400">PG Accommodation</span> with Ease
